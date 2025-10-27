@@ -1,0 +1,267 @@
+{% extends 'core/base_dashboard.html' %}
+
+{% block title %}Register New Vehicle{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Vehicle Registration Form</h5>
+            </div>
+            <div class="card-body">
+                <form id="vehicleForm" method="post">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="plate_number" class="form-label">License Plate Number</label>
+                            <input type="text" class="form-control" id="plate_number" name="plate_number" required>
+                            <div class="form-text">Enter the complete license plate number</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="fuel_type" class="form-label">Fuel Type</label>
+                            <select class="form-select" id="fuel_type" name="fuel_type" required>
+                                <option value="">Select Fuel Type</option>
+                                <option value="petrol">Petrol</option>
+                                <option value="diesel">Diesel</option>
+                                <option value="electric">Electric</option>
+                                <option value="hybrid">Hybrid</option>
+                                <option value="cng">CNG</option>
+                                <option value="lpg">LPG</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-12">
+                            <h6 class="text-white mb-3">Owner Information</h6>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="owner_name" class="form-label">Owner Name</label>
+                            <input type="text" class="form-control" id="owner_name" name="owner_name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="owner_contact" class="form-label">Contact Number</label>
+                            <input type="tel" class="form-control" id="owner_contact" name="owner_contact">
+                        </div>
+                        <div class="col-12">
+                            <label for="owner_address" class="form-label">Owner Address</label>
+                            <textarea class="form-control" id="owner_address" name="owner_address" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_commercial" name="is_commercial">
+                                <label class="form-check-label" for="is_commercial">
+                                    Commercial Transport Vehicle
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-12" id="commercial-section" style="display: none;">
+                            <label for="commercial_agency" class="form-label">Commercial Transport Agency Name</label>
+                            <input type="text" class="form-control" id="commercial_agency" name="commercial_agency">
+                            <div class="form-text">Enter the name of the transport agency or company</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Register Vehicle
+                        </button>
+                        <a href="/api/core/ui/vehicles/" class="btn btn-secondary ms-2">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Vehicles
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Registration Successful</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Vehicle has been registered successfully!</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Show/hide commercial section based on checkbox
+document.getElementById('is_commercial').addEventListener('change', function() {
+    const commercialSection = document.getElementById('commercial-section');
+    if (this.checked) {
+        commercialSection.style.display = 'block';
+        document.getElementById('commercial_agency').required = true;
+    } else {
+        commercialSection.style.display = 'none';
+        document.getElementById('commercial_agency').required = false;
+        document.getElementById('commercial_agency').value = '';
+    }
+});
+
+// Form submission
+document.getElementById('vehicleForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Registering...';
+    
+    try {
+        const formData = new FormData(this);
+        const response = await fetch('/api/core/ui/register-vehicle/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Show success modal
+            const modal = new bootstrap.Modal(document.getElementById('successModal'));
+            modal.show();
+            
+            // Reset form
+            this.reset();
+            document.getElementById('commercial-section').style.display = 'none';
+            
+        } else {
+            alert('Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred while registering the vehicle.');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    }
+});
+
+// License plate formatting
+document.getElementById('plate_number').addEventListener('input', function(e) {
+    let value = e.target.value.toUpperCase();
+    // Remove any non-alphanumeric characters except spaces and hyphens
+    value = value.replace(/[^A-Z0-9\s\-]/g, '');
+    e.target.value = value;
+});
+
+// Contact number formatting
+document.getElementById('owner_contact').addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+    if (value.length > 10) {
+        value = value.substring(0, 10);
+    }
+    e.target.value = value;
+});
+</script>
+
+<style>
+.form-control, .form-select {
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid #444;
+    color: #fff;
+}
+
+.form-control:focus, .form-select:focus {
+    background: rgba(0, 0, 0, 0.8);
+    border-color: #00ffff;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    color: #fff;
+}
+
+.form-control::placeholder {
+    color: #666;
+}
+
+.form-label {
+    color: #fff;
+    font-weight: 600;
+}
+
+.form-text {
+    color: #999;
+    font-size: 0.875rem;
+}
+
+.form-check-input {
+    background-color: rgba(0, 0, 0, 0.7);
+    border: 1px solid #444;
+}
+
+.form-check-input:checked {
+    background-color: #00ffff;
+    border-color: #00ffff;
+}
+
+.form-check-label {
+    color: #fff;
+    font-weight: 500;
+}
+
+.btn-primary {
+    background: linear-gradient(45deg, #00ffff, #0080ff);
+    border: none;
+    color: #000;
+    font-weight: 600;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(45deg, #00cccc, #0066cc);
+    transform: translateY(-2px);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #666;
+    color: #fff;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.modal-content {
+    background: rgba(0, 0, 0, 0.9);
+    border: 1px solid #444;
+    color: #fff;
+}
+
+.modal-header {
+    border-bottom: 1px solid #444;
+}
+
+.modal-title {
+    color: #fff;
+}
+
+.btn-close {
+    filter: invert(1);
+}
+
+h6 {
+    color: #00ffff;
+    font-weight: 600;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+}
+</style>
+{% endblock %}

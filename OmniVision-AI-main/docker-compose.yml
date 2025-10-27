@@ -1,0 +1,55 @@
+version: '3.8'
+services:
+  web:
+    build: .
+    command: gunicorn OmniVisionAI.asgi:application -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
+    env_file: .env
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: celery -A OmniVisionAI worker -l info
+    env_file: .env
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+      - redis
+    restart: unless-stopped
+
+  beat:
+    build: .
+    command: celery -A OmniVisionAI beat -l info
+    env_file: .env
+    volumes:
+      - .:/app
+    depends_on:
+      - worker
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: omnivision
+      POSTGRES_USER: omnivision
+      POSTGRES_PASSWORD: omnivision
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:
+
